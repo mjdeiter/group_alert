@@ -1,9 +1,9 @@
 -- Group Alert Script for MacroQuest
 -- Monitors group member distances and alerts via HUD when members are too far from the leader
--- Version: 1.5.1
+-- Version: 1.5.2
 
 local mq = require('mq')
-local SCRIPT_VERSION = "1.5.1"
+local SCRIPT_VERSION = "1.5.2"
 
 -- Configuration
 local config = {
@@ -17,7 +17,8 @@ local config = {
 local state = {
     showAlert = false,
     separatedMembers = {},
-    lastCheckTime = os.time()
+    lastCheckTime = os.time(),
+    previousShowAlert = false  -- Track previous alert state
 }
 
 -- Log file for debugging
@@ -133,6 +134,10 @@ local function checkGroupDistances()
     if not groupMembers or groupMembers < 2 then
         state.showAlert = false
         updateMQ2Variables()
+        if state.previousShowAlert then
+            print("\ag[GROUP ALERT] All clear: All members are within range.")
+        end
+        state.previousShowAlert = state.showAlert
         return
     end
 
@@ -140,6 +145,10 @@ local function checkGroupDistances()
     if not leader or not leader.Name() then
         state.showAlert = false
         updateMQ2Variables()
+        if state.previousShowAlert then
+            print("\ag[GROUP ALERT] All clear: All members are within range.")
+        end
+        state.previousShowAlert = state.showAlert
         return
     end
 
@@ -168,7 +177,10 @@ local function checkGroupDistances()
     updateMQ2Variables()
     if state.showAlert then
         print("\ar[GROUP ALERT] Members too far: " .. table.concat(state.separatedMembers, ", "))
+    elseif state.previousShowAlert then
+        print("\ag[GROUP ALERT] All clear: All members are within range.")
     end
+    state.previousShowAlert = state.showAlert
 end
 
 -- Command handler
@@ -215,6 +227,8 @@ if config.useHUDAlert then
     safeMQCommand("/hud reload")
 end
 
+-- Display credit message and version
+print("\atOriginally created by Alektra <Lederhosen>")
 print("\agGroup Alert Script v" .. SCRIPT_VERSION .. " Loaded")
 logMessage("Script started")
 
