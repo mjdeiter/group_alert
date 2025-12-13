@@ -1,141 +1,194 @@
-This script is a controller-side distance monitor for EverQuest group play on MacroQuest, with HUD-based alerts when members drift too far from the leader.
+Group Alert (Project Lazarus)
 
-Overview
-This Lua script for MQNext watches the current group, computes 3D distances between each member and the group leader, and raises alerts when anyone exceeds a configurable distance threshold. It is designed to be simple, deterministic, and safe for EMU servers such as Project Lazarus, using MQ variables and MQ2HUD for in-game visualization.
+A controller-driven group distance monitor for the Project Lazarus EverQuest EMU server.
 
-Features
-Monitors all group members relative to the current group leader in 3D space.
+What It Does
 
-Configurable distance threshold in game units (default 500).
+Group Alert lets one character monitor how far each group member is from the group leader and raises clear alerts when anyone is too far away. It uses MacroQuest variables plus MQ2HUD so you can see at a glance who has drifted out of range.
 
-Periodic checks with a configurable interval (default 5 seconds).
+Compatible With
 
-HUD-based alert line driven by MQ variables to show out-of-range members.
-
-Debug logging to both console (optional) and a text log file.
-
-Commands to toggle debug mode, change threshold, and re-run initialization.
-
-Requirements
-MacroQuest (MQNext) running on an EQ EMU server (tested behavior targeted at Lazarus-style environments).
-
-Lua scripting support enabled in MQNext.
-
-MQ2HUD plugin available; HUD-based alerts are optional but recommended.
-
-Ability to write to the MQ directory (for group_alert_log.txt and MQ2HUD.ini updates).
-
-Installation
-Save the script file (for example) as group_alert.lua in your MQ lua or scripts folder.
-
-Verify that MQNext is running and connected to your EMU server.
-
-Ensure MQ2HUD is available in your Plugins folder if you plan to use the HUD alert feature.
-
-Confirm that your MQ directory is writable so the script can create and append to group_alert_log.txt.
+MacroQuest MQNext (MQ2Mono)
+E3Next
+Lazarus-compatible HUD setups (MQ2HUD)
 
 How It Works
-On startup, the script clears or creates group_alert_log.txt and begins logging timestamped messages for key events and errors.
 
-It checks for and declares two MQ variables if they do not already exist:
+Single Controller Script
 
-groupAlert (int) – 0 when all clear, 1 when any member is too far away.
+Runs only on your main/controller character
 
-groupAlertMembers (string) – comma-separated list of distant members.
+Periodically checks the group leader’s position and compares each member’s 3D distance
 
-A HUD entry is written into MQ2HUD.ini under the "HUD" section with the key GroupAlertText.
+Updates MQ variables so the HUD can show alert text
 
-This line uses ${groupAlert} and ${groupAlertMembers} to conditionally display a red “GROUP ALERT” message and names when groupAlert is 1.
+The Process:
 
-Every checkInterval seconds, the script:
+The script tracks the leader’s coordinates
 
-Validates the group size and leader.
+It measures each group member’s distance from the leader
 
-Reads the leader’s current coordinates.
+If any member exceeds the configured threshold, it:
 
-Iterates over each group member, computes 3D distance to the leader, and records any member whose distance exceeds threshold.
+Sets groupAlert = 1
 
-Updates state.showAlert and sets MQ variables accordingly (groupAlert and groupAlertMembers).
+Fills groupAlertMembers with the names of distant toons
 
-Optionally reloads MQ2HUD when alerts change, ensuring HUD reflects the current state.
+Reloads MQ2HUD (if enabled) and prints a console alert
+
+When everyone comes back within range, it:
+
+Sets groupAlert = 0 and clears groupAlertMembers
+
+Reloads MQ2HUD (if enabled) and prints an “All clear” message
+
+Key Features
+
+Controller-only execution – Only one toon runs the script and controls alerts
+
+Distance-based alerts – Configurable 3D distance threshold between leader and members
+
+HUD integration – Uses MQ2HUD to show a red “GROUP ALERT” line with separated member names
+
+Timestamped logging – Writes a log file (group_alert_log.txt) for debugging and history
+
+Safe variable handling – Declares and verifies MQ variables before use (groupAlert, groupAlertMembers)
+
+Robust command wrapper – Safely executes MQ commands and reports failures clearly
+
+Alert state tracking – Prints “All clear” only when transitioning from alert back to safe
+
+Requirements
+
+Project Lazarus or compatible EQ EMU server
+
+MacroQuest MQNext (MQ2Mono)
+
+MQ2HUD plugin (for HUD alerts; optional but recommended)
+
+Characters must be grouped and in command range for HUD/console status to be meaningful
+
+Installation
+
+Copy the script file (for example):
+
+group_alert.lua
+into your MQ lua (or scripts) directory.
+
+Ensure MQ2HUD is present in your Plugins folder if you want HUD alerts.
+
+Start EverQuest and MacroQuest on your controller character.
+
+From the MQ console on the controller, run:
+
+/lua run group_alert
+
+Usage
+
+Basic Behavior
+
+Once running, the script:
+
+Checks group distances at a fixed interval (default every 5 seconds)
+
+Prints red console alerts listing members who are too far from the leader
+
+Prints green “All clear” messages when everyone is back in range
+
+MQ2HUD displays or hides a “GROUP ALERT” line based on the groupAlert variable.
 
 Commands
-The script binds a /groupalert command with sub-commands:
 
 /groupalert
 
-Shows basic usage help text in the MQ console.
+Shows usage help in the MQ console.
 
 /groupalert debug
 
-Toggles debug logging on or off.
+Toggles debug mode on or off.
 
-When debug is on, key operations and errors are echoed to the MQ console in addition to the log file.
+When ON, key events and errors are echoed to the MQ console in addition to the log file.
 
 /groupalert threshold <value>
 
-Sets the distance threshold (in game units) to a positive numeric value.
+Sets the distance threshold in game units.
 
-Invalid or non-positive values are rejected with a clear error message.
+Must be a positive number; invalid values are rejected with a clear message.
 
 /groupalert reload
 
 Re-runs the MacroQuest variable initialization routine.
 
-Useful if variables were cleared, changed, or corrupted during the session.
+Useful if the variables were cleared or changed during the session.
 
-HUD Integration
-On load, the script:
+Configuration
 
-Attempts to load MQ2HUD automatically if useHUDAlert is enabled and the plugin is not yet loaded.
+Distance Threshold
 
-Writes/updates this HUD entry in MQ2HUD.ini (section "HUD", key GroupAlertText):
+config.threshold (default: 500) controls how far a member can be from the leader before triggering an alert.
 
-Position: 100,100 (screen coordinates; adjust manually in the INI if desired).
+Higher values are appropriate for large zones or kiting; lower values for tight camps.
 
-Color: red text when alerting.
+Check Interval
 
-Content: shows “GROUP ALERT: <names>” when groupAlert is 1, otherwise blank.
+config.checkInterval (default: 5 seconds) sets how often the script scans group distances.
 
-Reloads the HUD layout when alerts change (and useHUDAlert is enabled), ensuring the HUD line updates promptly.
+Shorter intervals react faster but perform checks more frequently.
 
-If MQ2HUD cannot be loaded, the script will disable HUD alerts for the session but continue console alerts and variable updates.
+HUD Alerts
 
-Logging and Debugging
-All internal events (initialization, errors, state updates) are logged to group_alert_log.txt with timestamps.
+config.useHUDAlert (default: true) controls whether MQ2HUD is used.
 
-When debug mode is enabled, selected log messages are also printed to the MQ console with a [Debug] tag and colored text.
+On startup, the script:
 
-Errors executing MQ commands are captured via protected calls, logged, and surfaced in the console with a short, clear message pointing to the log file for details.
+Attempts to load MQ2HUD if it is not already loaded
 
-Runtime Behavior
-The script runs an infinite loop with a short delay (mq.delay(50)) to remain responsive while avoiding tight loops.
+Writes/updates the GroupAlertText entry in MQ2HUD.ini under the HUD section
 
-Each cycle, it processes MQ events and checks whether checkInterval seconds have elapsed since the last distance scan.
+Reloads the HUD when needed so the alert text reflects current state
 
-When any member is beyond the threshold, the script prints a red “GROUP ALERT” message in the console with the list of separated members.
+If MQ2HUD cannot be loaded, HUD alerts are disabled for that session and only console/log alerts are used.
 
-When a previously active alert clears (all members back within range), it prints a green “All clear” message.
+Debug Mode
 
-Status transitions (alert raised or cleared) are also logged to the log file to help reconstruct group movement issues.
+config.debug (default: false) can be toggled with /groupalert debug.
 
-Configuration Notes
-config.threshold: Adjust this to match your content and pull strategy; larger zones or kite situations may need a higher value.
+When enabled, the script prints additional information about variable checks, command execution, and group scanning to the console.
 
-config.checkInterval: Lower values mean more frequent checks (more responsiveness) at the cost of slightly more overhead.
+Where Settings and Logs Are Saved
 
-config.useHUDAlert: Set to false if you want console-only behavior or if MQ2HUD is not desired.
+Log file: group_alert_log.txt in your MQ directory.
 
-config.debug: Can be toggled at runtime via /groupalert debug; leaving it off is recommended for normal play to reduce console noise.
+Contains timestamped entries for:
 
-Credits and Versioning
-Originally created by Alektra <Lederhosen>.
+Startup and shutdown
 
-Current script version: 1.5.2 (shown in the console on startup).
+MQ command errors
 
-The console startup messages confirm successful load and provide the version string so you can verify which build is running.
+Variable initialization and updates
+
+Group scan operations and issues (e.g., invalid leader coordinates)
+
+MQ2HUD configuration: MQ2HUD.ini (existing file).
+
+The script adds or updates the GroupAlertText entry in the HUD section.
+
+Design Philosophy
+
+Group Alert respects Project Lazarus-style constraints by:
+
+Using a single controller – Only one character runs the script and drives alerts
+
+Avoiding remote polling – Relies on group/leader information exposed locally to the controller
+
+Preferring predictable behavior – Fixed check interval, explicit thresholds, and clear state transitions
+
+Failing safely – Protected MQ command execution, robust variable checks, and graceful handling when MQ2HUD is unavailable
+
+Keeping automation minimal – No buff/inventory scanning, no background execution on other toons
 
 Credits
-Created by: Alektra
+
+Created by: Alektra <Lederhosen>
 For: Project Lazarus EverQuest EMU Server
-Support: https://buymeacoffee.com/shablagu
+Version: 1.5.2 (shown on load as Group Alert Script v1.5.2)
