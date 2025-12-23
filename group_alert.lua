@@ -1,16 +1,16 @@
 -- Group Alert Script for MacroQuest
 -- Monitors group member distances and alerts via HUD when members are too far from the leader
--- Version: 2.1.0
+-- Version: 2.3.8
 
 local mq = require('mq')
 local ImGui = require('ImGui')
-local SCRIPT_VERSION = "2.1.0"
+local SCRIPT_VERSION = "2.3.8"
 
 -- Configuration
 local config = {
     threshold = 500,         -- Distance threshold in units
     checkInterval = 5,       -- Interval in seconds between checks
-    useHUDAlert = true,      -- Enable/disable HUD alert
+    enableCenterAlert = true, -- Enable/disable center-screen /alert
     debug = false            -- Enable debug output
 }
 
@@ -19,7 +19,10 @@ local state = {
     showAlert = false,
     separatedMembers = {},
     lastCheckTime = os.time(),
-    previousShowAlert = false  -- Track previous alert state
+    previousShowAlert = false,  -- Track previous alert state
+    alertActive = false,        -- Center-screen alert spam guard
+    centerMessage = "",         -- Current overlay message
+    centerUntil = 0             -- os.time() when overlay should disappear
 }
 
 -- GUI state
@@ -62,71 +65,6 @@ local function safeMQCommand(command)
     return true
 end
 
--- Check if a variable is defined in MacroQuest
-local function isVariableDefined(varName)
-    local success, result = pcall(function() return mq.TLO.Defined(varName)() end)
-    if not success then
-        logMessage("Error checking variable '" .. varName .. "': " .. tostring(result))
-        return false
-    end
-    logMessage("Checking if '" .. varName .. "' is defined: " .. tostring(result))
-    return result
-end
-
--- Initialize MacroQuest variables
-local function initializeMQVariables()
-    logMessage("Initializing MacroQuest variables...")
-
-    -- Declare variables if they don't exist
-    if not isVariableDefined("groupAlert") then
-        safeMQCommand("/declare groupAlert int outer 0")
-        logMessage("Declared 'groupAlert' as int outer with value 0")
-    else
-        logMessage("'groupAlert' already declared")
-    end
-
-    if not isVariableDefined("groupAlertMembers") then
-        safeMQCommand("/declare groupAlertMembers string outer \"\"")
-        logMessage("Declared 'groupAlertMembers' as string outer with value \"\"")
-    else
-        logMessage("'groupAlertMembers' already declared")
-    end
-
-    -- Verify declarations
-    safeMQCommand("/echo Verifying groupAlert: ${groupAlert}")
-    safeMQCommand("/echo Verifying groupAlertMembers: ${groupAlertMembers}")
-end
-
--- Update MacroQuest variables with checks
-local function updateMQ2Variables()
-    -- Ensure variables exist before setting
-    if not isVariableDefined("groupAlert") then
-        logMessage("'groupAlert' missing, re-declaring...")
-        safeMQCommand("/declare groupAlert int outer 0")
-    end
-    if not isVariableDefined("groupAlertMembers") then
-        logMessage("'groupAlertMembers' missing, re-declaring...")
-        safeMQCommand("/declare groupAlertMembers string outer \"\"")
-    end
-
-    -- Set values based on alert state
-    if state.showAlert then
-        safeMQCommand("/varset groupAlert 1")
-        safeMQCommand("/varset groupAlertMembers \"" .. table.concat(state.separatedMembers, ", ") .. "\"")
-        logMessage("Set groupAlert=1, groupAlertMembers=\"" .. table.concat(state.separatedMembers, ", ") .. "\"")
-    else
-        safeMQCommand("/varset groupAlert 0")
-        safeMQCommand("/varset groupAlertMembers \"\"")
-        logMessage("Set groupAlert=0, groupAlertMembers=\"\"")
-    end
-
-    -- Reload HUD if in use
-    if config.useHUDAlert and mq.TLO.Plugin("MQ2HUD").IsLoaded() then
-        safeMQCommand("/hud reload")
-        logMessage("HUD reloaded")
-    end
-end
-
 -- Calculate 3D distance
 local function calculateDistance(x1, y1, z1, x2, y2, z2)
     return math.sqrt((x2 - x1)^2 + (y2 - y1)^2 + (z2 - z1)^2)
@@ -159,6 +97,38 @@ local function tooltip(text)
     end
 end
 
+
+-- Center-screen alert handling (no MQ2HUD)
+-- Fires once per event, auto-clears when resolved.
+local function fireCenterOverlay(msg, seconds)
+    if not config.enableCenterAlert then return end
+    state.centerMessage = msg or ""
+    state.centerUntil = os.time() + (seconds or 3)
+end
+
+-- Center-screen alert handling (ImGui overlay; NO MQ2HUD; NO /alert command)
+-- Fires once per event, auto-clears when resolved.
+local function handleCenterAlert()
+    if not config.enableCenterAlert then
+        state.alertActive = false
+        state.centerMessage = ""
+        state.centerUntil = 0
+        return
+    end
+
+    if state.showAlert and not state.alertActive then
+        fireCenterOverlay("GROUP ALERT: " .. table.concat(state.separatedMembers, ", "), 3)
+        state.alertActive = true
+    elseif (not state.showAlert) and state.alertActive then
+        fireCenterOverlay("GROUP ALERT CLEARED", 2)
+        state.alertActive = false
+    end
+end
+
+local function testCenterAlert()
+    fireCenterOverlay("GROUP ALERT TEST: Center overlay is working.", 3)
+end
+
 -- GUI collapsible section state
 local showSettings = false
 
@@ -168,7 +138,7 @@ local function checkGroupDistances()
     local groupMembers = getGroupMemberCount()
     if groupMembers < 2 then
         state.showAlert = false
-        updateMQ2Variables()
+        handleCenterAlert()
         if state.previousShowAlert then
             print("\ag[GROUP ALERT] All clear: All members are within range.")
         end
@@ -179,7 +149,7 @@ local function checkGroupDistances()
     local leader = mq.TLO.Group.Leader
     if not leader or not leader.Name() then
         state.showAlert = false
-        updateMQ2Variables()
+        handleCenterAlert()
         if state.previousShowAlert then
             print("\ag[GROUP ALERT] All clear: All members are within range.")
         end
@@ -209,7 +179,7 @@ local function checkGroupDistances()
     end
 
     state.showAlert = #state.separatedMembers > 0
-    updateMQ2Variables()
+    handleCenterAlert()
     if state.showAlert then
         print("\ar[GROUP ALERT] Members too far: " .. table.concat(state.separatedMembers, ", "))
     elseif state.previousShowAlert then
@@ -277,6 +247,52 @@ end
 
 -- GUI Draw function
 local function drawGUI()
+    -- Always draw center overlay (even if main window is hidden)
+    if config.enableCenterAlert and state.centerMessage ~= "" and os.time() < (state.centerUntil or 0) then
+        local io = ImGui.GetIO()
+        local x = io.DisplaySize.x / 2
+        local y = io.DisplaySize.y * 0.20
+        ImGui.SetNextWindowBgAlpha(0.35)
+        ImGui.SetNextWindowPos(x, y, ImGuiCond.Always, 0.5, 0.5)
+        ImGui.Begin("##GroupAlertCenterOverlay", nil,
+            bit32.bor(ImGuiWindowFlags.NoDecoration, ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoSavedSettings,
+                     ImGuiWindowFlags.NoFocusOnAppearing, ImGuiWindowFlags.NoNav, ImGuiWindowFlags.NoInputs))
+        
+        ImGui.PushFont(ImGui.GetFont())
+        ImGui.SetWindowFontScale(2.0)
+
+        -- Bold/outline effect: draw the same text multiple times with small offsets (black),
+        -- then once in fluorescent green. We then reserve layout space once with Dummy().
+        local msg = state.centerMessage or ""
+        local cx, cy = ImGui.GetCursorPos()
+        local tsx, tsy = ImGui.CalcTextSize(msg)
+
+        -- Outline offsets (pixels, in window space)
+        local o = 1
+
+        ImGui.SetCursorPos(cx - o, cy)
+        ImGui.TextColored(0.0, 0.0, 0.0, 1.0, msg)
+        ImGui.SetCursorPos(cx + o, cy)
+        ImGui.TextColored(0.0, 0.0, 0.0, 1.0, msg)
+        ImGui.SetCursorPos(cx, cy - o)
+        ImGui.TextColored(0.0, 0.0, 0.0, 1.0, msg)
+        ImGui.SetCursorPos(cx, cy + o)
+        ImGui.TextColored(0.0, 0.0, 0.0, 1.0, msg)
+
+        -- Foreground text
+        ImGui.SetCursorPos(cx, cy)
+        ImGui.TextColored(0.2, 1.0, 0.2, 1.0, msg)
+
+        -- Advance cursor once (prevents extra lines from the outline passes)
+        ImGui.SetCursorPos(cx, cy)
+        ImGui.Dummy(tsx, tsy)
+
+        ImGui.SetWindowFontScale(1.0)
+        ImGui.PopFont()
+
+        ImGui.End()
+    end
+
     if not showUI then return end
     
     local open = ImGui.Begin("Group Alert " .. SCRIPT_VERSION, true)
@@ -348,11 +364,17 @@ local function drawGUI()
         end
         tooltip("Seconds between automatic distance checks")
         
-        local h = ImGui.Checkbox("Enable HUD Alert", config.useHUDAlert)
+        local h = ImGui.Checkbox("Enable Center-Screen Alerts", config.enableCenterAlert)
         if type(h) == "boolean" then
-            config.useHUDAlert = h
+            config.enableCenterAlert = h
         end
-        tooltip("Show alerts in MQ2HUD overlay")
+        tooltip("Shows a temporary center-screen alert when group members exceed the distance threshold")
+
+
+        if ImGui.Button("Test Center-Screen Alert") then
+            testCenterAlert()
+        end
+        tooltip("Sends a test /alert message to confirm center-screen alerts are working")
         
         local d = ImGui.Checkbox("Debug Mode", config.debug)
         if type(d) == "boolean" then
@@ -361,15 +383,6 @@ local function drawGUI()
         tooltip("Enable detailed debug logging")
         
         ImGui.Separator()
-        
-        if ImGui.Button("Reload HUD") then
-            initializeMQVariables()
-            if config.useHUDAlert then
-                safeMQCommand("/hud reload")
-            end
-            print("\ag[GROUP ALERT] Configuration reloaded")
-        end
-        tooltip("Reinitialize MQ variables and reload HUD")
     end
     
     -- Group Member Details
@@ -436,7 +449,6 @@ local function groupAlertCommand(...)
             print("\arInvalid interval value. Must be a positive number.")
         end
     elseif args[1] == "reload" then
-        initializeMQVariables()
         print("\agConfiguration reloaded.")
     elseif args[1] == "check" then
         manualGroupCheck()
@@ -445,7 +457,7 @@ local function groupAlertCommand(...)
         print("\ag  Threshold: " .. config.threshold .. " units")
         print("\ag  Check Interval: " .. config.checkInterval .. " seconds")
         print("\ag  Debug Mode: " .. (config.debug and "ON" or "OFF"))
-        print("\ag  HUD Alert: " .. (config.useHUDAlert and "ON" or "OFF"))
+        print("\ag  Center Alerts: " .. (config.enableCenterAlert and "ON" or "OFF"))
     elseif args[1] == "gui" then
         showUI = true
         print("\ag[GROUP ALERT] GUI opened")
@@ -466,23 +478,6 @@ end
 
 -- Bind command
 mq.bind("/groupalert", groupAlertCommand)
-
--- Check plugins
-if config.useHUDAlert and not mq.TLO.Plugin("MQ2HUD").IsLoaded() then
-    print("\arMQ2HUD not loaded. Attempting to load it...")
-    safeMQCommand("/plugin MQ2HUD")
-    if not mq.TLO.Plugin("MQ2HUD").IsLoaded() then
-        print("\arFailed to load MQ2HUD. HUD alerts disabled.")
-        config.useHUDAlert = false
-    end
-end
-
--- Initialize and setup HUD
-initializeMQVariables()
-safeMQCommand('/ini "MQ2HUD.ini" "HUD" "GroupAlertText" "100,100,3,255,0,0,${If[${groupAlert}==1,GROUP ALERT: ${groupAlertMembers},]}"')
-if config.useHUDAlert then
-    safeMQCommand("/hud reload")
-end
 
 -- Initialize ImGui
 mq.imgui.init("GroupAlert", drawGUI)
