@@ -1,9 +1,10 @@
 -- Group Alert Script for MacroQuest
 -- Monitors group member distances and alerts via HUD when members are too far from the leader
--- Version: 1.5.2
+-- Version: 2.1.0
 
 local mq = require('mq')
-local SCRIPT_VERSION = "1.5.2"
+local ImGui = require('ImGui')
+local SCRIPT_VERSION = "2.1.0"
 
 -- Configuration
 local config = {
@@ -20,6 +21,10 @@ local state = {
     lastCheckTime = os.time(),
     previousShowAlert = false  -- Track previous alert state
 }
+
+-- GUI state
+local showUI = true
+local terminate = false
 
 -- Log file for debugging
 local logFilePath = "group_alert_log.txt"
@@ -72,7 +77,7 @@ end
 local function initializeMQVariables()
     logMessage("Initializing MacroQuest variables...")
 
-    -- Declare variables if they don’t exist
+    -- Declare variables if they don't exist
     if not isVariableDefined("groupAlert") then
         safeMQCommand("/declare groupAlert int outer 0")
         logMessage("Declared 'groupAlert' as int outer with value 0")
@@ -127,11 +132,41 @@ local function calculateDistance(x1, y1, z1, x2, y2, z2)
     return math.sqrt((x2 - x1)^2 + (y2 - y1)^2 + (z2 - z1)^2)
 end
 
+-- Safe group member count - handles both 0-based and 1-based indexing
+local function getGroupMemberCount()
+    local count = mq.TLO.Group.Members()
+    if not count then return 0 end
+    return tonumber(count) or 0
+end
+
+-- Safe group member access - handles both 0-based and 1-based indexing
+local function getGroupMember(index)
+    -- Try 0-based first (standard MQ2)
+    local member = mq.TLO.Group.Member(index)
+    if member and member.Name() then return member end
+    
+    -- Fall back to 1-based if 0-based returns nil
+    member = mq.TLO.Group.Member(index + 1)
+    if member and member.Name() then return member end
+    
+    return nil
+end
+
+-- Helper for tooltips
+local function tooltip(text)
+    if ImGui.IsItemHovered() then
+        ImGui.SetTooltip(text)
+    end
+end
+
+-- GUI collapsible section state
+local showSettings = false
+
 -- Check group member distances
 local function checkGroupDistances()
     logMessage("Checking group distances...")
-    local groupMembers = mq.TLO.Group.Members()
-    if not groupMembers or groupMembers < 2 then
+    local groupMembers = getGroupMemberCount()
+    if groupMembers < 2 then
         state.showAlert = false
         updateMQ2Variables()
         if state.previousShowAlert then
@@ -161,7 +196,7 @@ local function checkGroupDistances()
 
     state.separatedMembers = {}
     for i = 0, groupMembers - 1 do
-        local member = mq.TLO.Group.Member(i)
+        local member = getGroupMember(i)
         if member and member.Name() and member.Name() ~= leader.Name() then
             local memberX, memberY, memberZ = member.X(), member.Y(), member.Z()
             if memberX and memberY and memberZ then
@@ -183,6 +218,201 @@ local function checkGroupDistances()
     state.previousShowAlert = state.showAlert
 end
 
+-- Manual check command - forces immediate distance check and reports results
+local function manualGroupCheck()
+    print("\ay[GROUP ALERT] Running manual group check...")
+    local groupMembers = getGroupMemberCount()
+    
+    if groupMembers < 2 then
+        print("\ay[GROUP ALERT] You are not in a group or group has only 1 member.")
+        return
+    end
+
+    local leader = mq.TLO.Group.Leader
+    if not leader or not leader.Name() then
+        print("\ar[GROUP ALERT] Unable to determine group leader.")
+        return
+    end
+
+    -- Cache leader's coordinates
+    local leaderX, leaderY, leaderZ = leader.X(), leader.Y(), leader.Z()
+    if not leaderX or not leaderY or not leaderZ then
+        print("\ar[GROUP ALERT] Unable to get leader coordinates.")
+        return
+    end
+
+    local withinRange = {}
+    local tooFar = {}
+    
+    for i = 0, groupMembers - 1 do
+        local member = getGroupMember(i)
+        if member and member.Name() and member.Name() ~= leader.Name() then
+            local memberX, memberY, memberZ = member.X(), member.Y(), member.Z()
+            if memberX and memberY and memberZ then
+                local distance = calculateDistance(leaderX, leaderY, leaderZ, memberX, memberY, memberZ)
+                if distance > config.threshold then
+                    table.insert(tooFar, string.format("%s (%.0f units)", member.Name(), distance))
+                else
+                    table.insert(withinRange, string.format("%s (%.0f units)", member.Name(), distance))
+                end
+            else
+                table.insert(tooFar, member.Name() .. " (no coordinates)")
+            end
+        end
+    end
+
+    print("\ag[GROUP ALERT] Leader: " .. leader.Name())
+    print("\ag[GROUP ALERT] Threshold: " .. config.threshold .. " units")
+    
+    if #withinRange > 0 then
+        print("\ag[GROUP ALERT] Within range: " .. table.concat(withinRange, ", "))
+    end
+    
+    if #tooFar > 0 then
+        print("\ar[GROUP ALERT] Too far: " .. table.concat(tooFar, ", "))
+    else
+        print("\ag[GROUP ALERT] All members are within range!")
+    end
+end
+
+-- GUI Draw function
+local function drawGUI()
+    if not showUI then return end
+    
+    local open = ImGui.Begin("Group Alert " .. SCRIPT_VERSION, true)
+    
+    if not open then
+        showUI = false
+        ImGui.End()
+        return
+    end
+
+    -- Status Section
+    ImGui.Text("Status:")
+    ImGui.Separator()
+    
+    local groupMembers = getGroupMemberCount()
+    if groupMembers < 2 then
+        ImGui.TextColored(1, 1, 0, 1, "Not in a group or only 1 member")
+    else
+        local leader = mq.TLO.Group.Leader
+        if leader and leader.Name() then
+            ImGui.Text("Leader: " .. leader.Name())
+        end
+        ImGui.Text("Group Members: " .. groupMembers)
+        
+        if state.showAlert then
+            ImGui.TextColored(1, 0, 0, 1, "ALERT: Members too far!")
+            ImGui.Text("Separated: " .. table.concat(state.separatedMembers, ", "))
+        else
+            ImGui.TextColored(0, 1, 0, 1, "All members within range")
+        end
+    end
+    
+    ImGui.Separator()
+    
+    -- Settings Toggle
+    if ImGui.Button(showSettings and "Hide Settings" or "Show Settings") then
+        showSettings = not showSettings
+    end
+    tooltip("Toggle settings visibility")
+    
+    ImGui.SameLine()
+    
+    if ImGui.Button("Manual Check") then
+        manualGroupCheck()
+    end
+    tooltip("Force immediate distance check and report results")
+    
+    ImGui.SameLine()
+    
+    if ImGui.Button("Exit Script") then
+        terminate = true
+    end
+    tooltip("Close window and terminate script")
+    
+    -- Settings Section
+    if showSettings then
+        ImGui.Separator()
+        ImGui.Text("Settings:")
+        
+        local t = ImGui.SliderInt("Distance Threshold", config.threshold, 50, 2000)
+        if type(t) == "number" then
+            config.threshold = t
+        end
+        tooltip("Maximum distance in units before alerting")
+        
+        local i = ImGui.SliderInt("Check Interval", config.checkInterval, 1, 30)
+        if type(i) == "number" then
+            config.checkInterval = i
+        end
+        tooltip("Seconds between automatic distance checks")
+        
+        local h = ImGui.Checkbox("Enable HUD Alert", config.useHUDAlert)
+        if type(h) == "boolean" then
+            config.useHUDAlert = h
+        end
+        tooltip("Show alerts in MQ2HUD overlay")
+        
+        local d = ImGui.Checkbox("Debug Mode", config.debug)
+        if type(d) == "boolean" then
+            config.debug = d
+        end
+        tooltip("Enable detailed debug logging")
+        
+        ImGui.Separator()
+        
+        if ImGui.Button("Reload HUD") then
+            initializeMQVariables()
+            if config.useHUDAlert then
+                safeMQCommand("/hud reload")
+            end
+            print("\ag[GROUP ALERT] Configuration reloaded")
+        end
+        tooltip("Reinitialize MQ variables and reload HUD")
+    end
+    
+    -- Group Member Details
+    if groupMembers >= 2 then
+        ImGui.Separator()
+        ImGui.Text("Group Members:")
+        
+        ImGui.BeginChild("members", 0, 150, true)
+        
+        local leader = mq.TLO.Group.Leader
+        if leader and leader.Name() then
+            local leaderX, leaderY, leaderZ = leader.X(), leader.Y(), leader.Z()
+            
+            if leaderX and leaderY and leaderZ then
+                for i = 0, groupMembers - 1 do
+                    local member = getGroupMember(i)
+                    if member and member.Name() then
+                        local memberX, memberY, memberZ = member.X(), member.Y(), member.Z()
+                        
+                        if member.Name() == leader.Name() then
+                            ImGui.TextColored(0, 0.8, 1, 1, member.Name() .. " (Leader)")
+                        elseif memberX and memberY and memberZ then
+                            local distance = calculateDistance(leaderX, leaderY, leaderZ, memberX, memberY, memberZ)
+                            
+                            if distance > config.threshold then
+                                ImGui.TextColored(1, 0, 0, 1, string.format("%s - %.0f units", member.Name(), distance))
+                            else
+                                ImGui.TextColored(0, 1, 0, 1, string.format("%s - %.0f units", member.Name(), distance))
+                            end
+                        else
+                            ImGui.TextColored(0.5, 0.5, 0.5, 1, member.Name() .. " (no coordinates)")
+                        end
+                    end
+                end
+            end
+        end
+        
+        ImGui.EndChild()
+    end
+    
+    ImGui.End()
+end
+
 -- Command handler
 local function groupAlertCommand(...)
     local args = {...}
@@ -197,13 +427,40 @@ local function groupAlertCommand(...)
         else
             print("\arInvalid threshold value. Must be a positive number.")
         end
+    elseif args[1] == "interval" and args[2] then
+        local newInterval = tonumber(args[2])
+        if newInterval and newInterval > 0 then
+            config.checkInterval = newInterval
+            print("\agCheck interval set to " .. config.checkInterval .. " seconds")
+        else
+            print("\arInvalid interval value. Must be a positive number.")
+        end
     elseif args[1] == "reload" then
         initializeMQVariables()
         print("\agConfiguration reloaded.")
+    elseif args[1] == "check" then
+        manualGroupCheck()
+    elseif args[1] == "status" then
+        print("\ag[GROUP ALERT] Current Settings:")
+        print("\ag  Threshold: " .. config.threshold .. " units")
+        print("\ag  Check Interval: " .. config.checkInterval .. " seconds")
+        print("\ag  Debug Mode: " .. (config.debug and "ON" or "OFF"))
+        print("\ag  HUD Alert: " .. (config.useHUDAlert and "ON" or "OFF"))
+    elseif args[1] == "gui" then
+        showUI = true
+        print("\ag[GROUP ALERT] GUI opened")
+    elseif args[1] == "exit" then
+        terminate = true
+        print("\ag[GROUP ALERT] Exiting...")
     else
         print("\ay/groupalert debug - Toggle debug mode")
         print("\ay/groupalert threshold <value> - Set distance threshold")
+        print("\ay/groupalert interval <seconds> - Set check interval")
+        print("\ay/groupalert check - Manually check group member distances")
+        print("\ay/groupalert status - Show current settings")
         print("\ay/groupalert reload - Reload configuration")
+        print("\ay/groupalert gui - Open GUI window")
+        print("\ay/groupalert exit - Exit script")
     end
 end
 
@@ -227,13 +484,17 @@ if config.useHUDAlert then
     safeMQCommand("/hud reload")
 end
 
+-- Initialize ImGui
+mq.imgui.init("GroupAlert", drawGUI)
+
 -- Display credit message and version
 print("\atOriginally created by Alektra <Lederhosen>")
 print("\agGroup Alert Script v" .. SCRIPT_VERSION .. " Loaded")
+print("\ayUse /groupalert for commands or /groupalert gui to open window")
 logMessage("Script started")
 
 -- Main loop
-while true do
+while not terminate and mq.TLO.MacroQuest.GameState() == "INGAME" do
     mq.doevents()
     if os.time() - state.lastCheckTime >= config.checkInterval then
         state.lastCheckTime = os.time()
@@ -241,3 +502,7 @@ while true do
     end
     mq.delay(50)
 end
+
+-- Cleanup
+mq.imgui.destroy("GroupAlert")
+print("\ag[GROUP ALERT] Closed.")
