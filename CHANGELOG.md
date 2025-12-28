@@ -2,6 +2,51 @@
 
 ---
 
+## [v2.3.10] – 2025-12-22  
+### Center Overlay Alerts + Manual CoTH (Stable Release)
+
+### Added
+- **Always-visible “Cast Call of the Heroes” button**
+  - Manual trigger (not gated by alert state)
+  - Uses E3 group broadcast
+  - Tooltip explaining behavior
+- **Center-screen alert overlay** rendered via ImGui
+- **Test Center-Screen Alert** button for diagnostics
+- **Enable Center-Screen Alerts** toggle
+- High-visibility alert styling:
+  - 2× font scale
+  - Fluorescent green text
+  - Black outline for readability during combat and spell effects
+
+### Changed
+- Replaced MQ2HUD-based alerts with a **deterministic ImGui overlay**
+- Alerts now:
+  - Fire **once per separation event**
+  - Do **not spam** while the condition persists
+  - **Auto-clear** when all members return within range
+- Improved main button layout:
+  ```
+  [ Manual Check ] [ Cast Call of the Heroes ] [ Exit Script ]
+  ```
+
+### Removed
+- **All MQ2HUD dependencies**
+  - No plugin loading
+  - No HUD ini writes
+  - No `/hud reload`
+- Removed reliance on `/alert` / MQ2Alert plugin behavior
+
+### Fixed
+- Eliminated HUD-related instability caused by plugin availability
+- Resolved alert visibility inconsistencies across Lazarus environments
+
+### Compatibility
+- Designed specifically for **Project Lazarus (MQNext / MQ2Mono)**
+- Does not rely on optional or inconsistently available plugins
+- Safe under partial ImGui availability
+
+---
+
 ## [v2.3.8] – 2025-12-22  
 ### Center Overlay Alerts (Lazarus-Stable Release)
 
