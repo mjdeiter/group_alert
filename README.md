@@ -2,6 +2,8 @@
 
 **Originally created by Alektra <Lederhosen>**
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Support-Buy%20Me%20a%20Coffee-ffdd00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/shablagu)
+
 Group Alert is a real-time group distance monitoring tool for the  
 **Project Lazarus EverQuest EMU server**, built for **MacroQuest MQNext (MQ2Mono)**.
 
