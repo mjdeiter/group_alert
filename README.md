@@ -20,12 +20,15 @@ It continuously monitors group member distances from the group leader and provid
 - Manual distance checks on demand
 - EMU-safe group indexing (0-based and 1-based compatibility)
 
-### Center-Screen Alerts (v2.3.10)
+### Center-Screen Alerts (v2.3.11)
 - Large ImGui overlay alerts
-- **Fluorescent green text with black outline**
+- **EQ-style single drop shadow** (native EverQuest readability)
+- **Red alert** when members exceed distance threshold
+- **Green all-clear** when group returns within range
 - Fires once per event (no spam)
 - Auto-clears when resolved
 - Testable via GUI button
+- Optional overlay-only font for improved readability (safe fallback)
 
 ### Manual CoTH Control
 - **Always-visible “Cast Call of the Heroes” button**
@@ -41,6 +44,15 @@ It continuously monitors group member distances from the group leader and provid
   - Gray: No coordinates
 - Collapsible settings panel
 - Deterministic, non-flaky UI behavior
+
+### Persistent Settings (v2.3.11)
+Saved automatically to `GroupAlert.ini` in the MacroQuest config directory:
+- Distance Threshold
+- Check Interval
+- Enable Center-Screen Alerts
+- Debug Mode
+- Overlay shadow offset (X/Y)
+- Overlay font toggle and size
 
 ---
 
@@ -58,87 +70,3 @@ It continuously monitors group member distances from the group leader and provid
 
 1. Copy `group_alert.lua` into your MacroQuest `lua` directory
 2. In game, run:
-   ```
-   /lua run group_alert
-   ```
-3. The GUI will open automatically
-
----
-
-## Usage
-
-### Button Row
-```
-[ Manual Check ] [ Cast Call of the Heroes ] [ Exit Script ]
-```
-
-- **Manual Check** – Forces an immediate distance evaluation
-- **Cast Call of the Heroes** – Manually request CoTH from an available Mage
-- **Exit Script** – Fully terminates the script
-
----
-
-## Commands
-
-```
-/groupalert check
-/groupalert threshold <value>
-/groupalert interval <seconds>
-/groupalert status
-/groupalert gui
-/groupalert exit
-```
-
----
-
-## Alert Behavior
-
-- Alerts trigger once when a member exceeds the threshold
-- No repeated spam while condition persists
-- Clear alert fires when group returns within range
-
----
-
-## Window Behavior
-
-- **X button**: hides the window, monitoring continues
-- **Exit Script**: terminates the script completely
-- `/groupalert gui`: reopen hidden window
-
----
-
-## Configuration Guidance
-
-### Distance Threshold
-- 200–300: Tight formations (dungeons)
-- 500: Default
-- 1000+: Open-world travel
-
-### Check Interval
-- 1–3 seconds: High alertness
-- 5 seconds: Default
-- 10–30 seconds: Low overhead
-
----
-
-## Debug Logging
-
-When Debug Mode is enabled, logs are written to `group_alert_log.txt`.
-
----
-
-## Version History
-
-See [CHANGELOG.md](CHANGELOG.md) for full version history.
-
----
-
-## Current Version
-
-**v2.3.10**
-
----
-
-## License
-
-Provided as-is for use on the Project Lazarus EverQuest EMU server.
