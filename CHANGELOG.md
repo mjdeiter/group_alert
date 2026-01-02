@@ -1,9 +1,37 @@
 # Group Alert Changelog
 
+All notable changes to this project are documented in this file.
+
+This project follows a pragmatic versioning scheme where:
+- Patch releases fix correctness issues
+- Minor releases add features
+- Visual-only changes are explicitly called out
+
 ---
 
-## [v2.3.11] – 2025-12-29  
-### EQ-Style Overlay, Persistence, and Visual Clarity (Canonical)
+## [v2.3.12] – 2026-01-02
+### Full Group Iteration Fix (Canonical)
+
+### Fixed
+- Corrected group member iteration on Project Lazarus so **all 6 group members**
+  are displayed and evaluated correctly.
+- Resolved off-by-one behavior caused by `Group.Members()` returning only
+  non-self members on Lazarus.
+
+### Notes
+- No feature changes
+- No UI changes
+- No HUD changes
+- No configuration changes
+- Fully backward compatible
+
+This release is a **surgical correctness fix** and preserves all existing
+behavior, visuals, and saved settings.
+
+---
+
+## [v2.3.11] – 2025-12-29
+### EQ-Style Overlay & Persistence (Visual Polish Release)
 
 ### Added
 - Persistent configuration saved to `GroupAlert.ini`:
@@ -13,46 +41,75 @@
   - Debug mode
   - Overlay shadow offset (X/Y)
   - Overlay font toggle and font size
-- EQ-style center-screen overlay rendering:
-  - Fully transparent ImGui window (no background plate)
-  - Single drop shadow for native EverQuest-style readability
-- Color-coded alert states:
-  - **Red** when group members exceed distance threshold
+- EQ-style center-screen overlay:
+  - Fully transparent background
+  - Single drop shadow (~1px right/down)
+- Color-coded overlay states:
+  - **Red** when group members exceed threshold
   - **Green** when group returns within range
-- Optional overlay-only font for improved clarity (safe fallback if unavailable)
+- Optional overlay-only pixel-style font (Tahoma fallback)
 
 ### Changed
-- Replaced outlined/boxed overlay styles with native-feeling EQ-style text
-- Center overlay rendering now uses explicit RGBA foreground colors
-- Overlay visuals refined without altering alert timing or logic
-
-### Compatibility
-- EMU-safe (Project Lazarus compliant)
-- MacroQuest MQNext (MQ2Mono)
-- No MQ2HUD, MQ2Alert, or `/alert` usage
-- Deterministic one-shot alerts preserved
+- Replaced outlined/boxed overlay styles with native EverQuest-style text
+- Explicit RGBA rendering for overlay text
+- Visual polish without altering alert logic or timing
 
 ---
 
-## [v2.3.10] – 2025-12-22  
-### Center Overlay Alerts + Manual CoTH (Stable Release)
+## [v2.3.10] – 2025-12-22
+### Center Overlay Alerts + Manual CoTH
 
 ### Added
+- Center-screen alert overlay rendered via ImGui
+- Test Center-Screen Alert button
+- Enable Center-Screen Alerts toggle
 - **Always-visible “Cast Call of the Heroes” button**
-  - Manual trigger (not gated by alert state)
+  - Manual trigger only
   - Uses E3 group broadcast
-- **Center-screen alert overlay** rendered via ImGui
-- **Test Center-Screen Alert** button for diagnostics
-- **Enable Center-Screen Alerts** toggle
-- High-visibility alert styling:
-  - Fluorescent green text
-  - Black outline
-  - 2× font scale
 
 ### Changed
-- Replaced MQ2HUD-based alerts with a deterministic ImGui overlay
-- Alerts now:
-  - Fire once per separation event
-  - Do not spam while the condition persists
-  - Auto-clear when all members return within range
-- Improved main button layout:
+- Replaced MQ2HUD-based alerts with ImGui overlay
+- Alerts now fire once per state change (no spam)
+- Clear alert fires when group returns within range
+
+### Removed
+- MQ2HUD dependency
+- MQ2Alert usage
+- `/alert` command reliance
+
+---
+
+## [v2.3.0 – v2.3.9]
+### Internal Iterations
+
+These versions represent internal migration work and incremental refinements
+leading up to the stable v2.3.10 overlay system.
+
+---
+
+## [v2.0.0] – 2025-12-20
+### Full GUI Introduction
+
+### Added
+- Full ImGui interface
+- Live group member distance list
+- Color-coded member display:
+  - Green – Within range
+  - Red – Too far
+  - Blue – Group leader
+  - Gray – No coordinates
+- Collapsible settings panel
+- Manual Check button
+- Distance threshold and interval sliders
+- Debug mode toggle
+
+---
+
+## [v1.x] – Original Releases
+### Initial Functionality
+
+- Group distance monitoring relative to leader
+- Configurable distance threshold
+- Automatic periodic checks
+- Debug logging to file
+- CLI-only interface (pre-GUI)
