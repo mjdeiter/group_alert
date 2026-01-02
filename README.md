@@ -18,17 +18,18 @@ It continuously monitors group member distances from the group leader and provid
 - Automatic distance checks (1–30 second interval)
 - Live ImGui GUI with real-time updates
 - Manual distance checks on demand
-- EMU-safe group indexing (0-based and 1-based compatibility)
+- EMU-safe group indexing (Lazarus-correct)
 
-### Center-Screen Alerts (v2.3.11)
-- Large ImGui overlay alerts
-- **EQ-style single drop shadow** (native EverQuest readability)
-- **Red alert** when members exceed distance threshold
-- **Green all-clear** when group returns within range
-- Fires once per event (no spam)
+### Center-Screen Alerts
+- EQ-style center-screen overlay
+- Fully transparent background (no plates or boxes)
+- Single drop shadow (~1px right/down)
+- Explicit RGBA text rendering
+- **Red** alert when members exceed distance threshold
+- **Green** all-clear when group returns within range
+- Fires once per state transition (no spam)
 - Auto-clears when resolved
 - Testable via GUI button
-- Optional overlay-only font for improved readability (safe fallback)
 
 ### Manual CoTH Control
 - **Always-visible “Cast Call of the Heroes” button**
@@ -45,14 +46,14 @@ It continuously monitors group member distances from the group leader and provid
 - Collapsible settings panel
 - Deterministic, non-flaky UI behavior
 
-### Persistent Settings (v2.3.11)
-Saved automatically to `GroupAlert.ini` in the MacroQuest config directory:
-- Distance Threshold
-- Check Interval
-- Enable Center-Screen Alerts
-- Debug Mode
+### Persistent Settings
+Saved automatically to `GroupAlert.ini`:
+- Distance threshold
+- Check interval
+- Center-screen alert toggle
+- Debug mode
 - Overlay shadow offset (X/Y)
-- Overlay font toggle and size
+- Overlay-only font toggle and font size
 
 ---
 
@@ -62,7 +63,7 @@ Saved automatically to `GroupAlert.ini` in the MacroQuest config directory:
 - MacroQuest **MQNext (MQ2Mono)**
 - ImGui support
 
-> **Note:** MQ2HUD and MQ2Alert are **not required** and are no longer used.
+> **Note:** MQ2HUD and MQ2Alert are **not required** and are not used.
 
 ---
 
