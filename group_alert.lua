@@ -1,10 +1,10 @@
 -- Group Alert Script for MacroQuest
 -- Monitors group member distances and alerts via HUD when members are too far from the leader
--- Version: 2.3.11
+-- Version: 2.3.12
 
 local mq = require('mq')
 local ImGui = require('ImGui')
-local SCRIPT_VERSION = "2.3.11"
+local SCRIPT_VERSION = "2.3.12"
 
 -- Configuration
 local config = {
@@ -13,17 +13,17 @@ local config = {
     enableCenterAlert = true, -- Enable/disable center-screen /alert
     debug = false,           -- Enable debug output
 
-    -- NEW: EQ-style overlay shadow offset (pixels)
+    -- EQ-style overlay shadow offset (pixels)
     shadowOffsetX = 1,
     shadowOffsetY = 1,
 
-    -- NEW: Overlay-only font option (pixel-ish)
+    -- Overlay-only font option (pixel-ish)
     useOverlayFont = true,
     overlayFontSize = 28
 }
 
 -- ============================
--- NEW: Persistent Config (INI)
+-- Persistent Config (INI)
 -- Saved to: <MQ Config Dir>/GroupAlert.ini
 -- ============================
 local CONFIG_FILE = mq.configDir .. "/GroupAlert.ini"
@@ -88,7 +88,7 @@ local state = {
     centerMessage = "",         -- Current overlay message
     centerUntil = 0,            -- os.time() when overlay should disappear
 
-    -- NEW: Overlay foreground color (RED/GREEN)
+    -- Overlay foreground color (RED/GREEN)
     centerColor = {0.2, 1.0, 0.2, 1.0}
 }
 
@@ -157,6 +157,19 @@ local function getGroupMember(index)
     return nil
 end
 
+-- NEW (v2.3.12): actual member count by iterating until nil (fixes 5 vs 6 display)
+local function getActualGroupCount()
+    local n = 0
+    local i = 0
+    while true do
+        local m = getGroupMember(i)
+        if not m or not m.Name() then break end
+        n = n + 1
+        i = i + 1
+    end
+    return n
+end
+
 -- Helper for tooltips
 local function tooltip(text)
     if ImGui.IsItemHovered() then
@@ -165,7 +178,7 @@ local function tooltip(text)
 end
 
 -- ============================
--- NEW: Overlay-only font load (safe fallback)
+-- Overlay-only font load (safe fallback)
 -- ============================
 local overlayFont = nil
 local overlayFontLoadedForSize = nil
@@ -196,7 +209,7 @@ local function fireCenterOverlay(msg, seconds, color)
     state.centerMessage = msg or ""
     state.centerUntil = os.time() + (seconds or 3)
 
-    -- NEW: accept overlay color
+    -- accept overlay color
     if type(color) == "table" then
         state.centerColor = color
     end
@@ -264,9 +277,14 @@ local function checkGroupDistances()
     end
 
     state.separatedMembers = {}
-    for i = 0, groupMembers - 1 do
+
+    -- FIX (v2.3.12): iterate members until nil so we don't miss the 6th member
+    local i = 0
+    while true do
         local member = getGroupMember(i)
-        if member and member.Name() and member.Name() ~= leader.Name() then
+        if not member or not member.Name() then break end
+
+        if member.Name() ~= leader.Name() then
             local memberX, memberY, memberZ = member.X(), member.Y(), member.Z()
             if memberX and memberY and memberZ then
                 local distance = calculateDistance(leaderX, leaderY, leaderZ, memberX, memberY, memberZ)
@@ -275,6 +293,8 @@ local function checkGroupDistances()
                 end
             end
         end
+
+        i = i + 1
     end
 
     state.showAlert = #state.separatedMembers > 0
@@ -313,9 +333,13 @@ local function manualGroupCheck()
     local withinRange = {}
     local tooFar = {}
 
-    for i = 0, groupMembers - 1 do
+    -- FIX (v2.3.12): iterate members until nil so we don't miss the 6th member
+    local i = 0
+    while true do
         local member = getGroupMember(i)
-        if member and member.Name() and member.Name() ~= leader.Name() then
+        if not member or not member.Name() then break end
+
+        if member.Name() ~= leader.Name() then
             local memberX, memberY, memberZ = member.X(), member.Y(), member.Z()
             if memberX and memberY and memberZ then
                 local distance = calculateDistance(leaderX, leaderY, leaderZ, memberX, memberY, memberZ)
@@ -328,6 +352,8 @@ local function manualGroupCheck()
                 table.insert(tooFar, member.Name() .. " (no coordinates)")
             end
         end
+
+        i = i + 1
     end
 
     print("\ag[GROUP ALERT] Leader: " .. leader.Name())
@@ -344,8 +370,6 @@ local function manualGroupCheck()
     end
 end
 
--- GUI Draw function
-
 -- Manual Cast: Call of the Heroes (E3 broadcast)
 local function castCoTH()
     mq.cmd('/e3bcga /casting "Call of the Heroes"')
@@ -354,14 +378,13 @@ end
 local function drawGUI()
     -- Always draw center overlay (even if main window is hidden)
     if config.enableCenterAlert and state.centerMessage ~= "" and os.time() < (state.centerUntil or 0) then
-        -- NEW: load overlay font if needed (safe fallback)
         tryLoadOverlayFont()
 
         local io = ImGui.GetIO()
         local x = io.DisplaySize.x / 2
         local y = io.DisplaySize.y * 0.20
 
-        -- EQ-style: no background (prevents black/grey plates)
+        -- EQ-style: no background
         ImGui.SetNextWindowBgAlpha(0.0)
         ImGui.SetNextWindowPos(x, y, ImGuiCond.Always, 0.5, 0.5)
 
@@ -369,7 +392,6 @@ local function drawGUI()
             bit32.bor(ImGuiWindowFlags.NoDecoration, ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoSavedSettings,
                      ImGuiWindowFlags.NoFocusOnAppearing, ImGuiWindowFlags.NoNav, ImGuiWindowFlags.NoInputs))
 
-        -- Use overlay-only font if available
         if overlayFont then
             ImGui.PushFont(overlayFont)
         else
@@ -378,14 +400,14 @@ local function drawGUI()
 
         ImGui.SetWindowFontScale(2.0)
 
-        -- EQ-style: single drop shadow (configurable offset)
         local msg = state.centerMessage or ""
         local cx, cy = ImGui.GetCursorPos()
 
+        -- single drop shadow
         ImGui.SetCursorPos(cx + (config.shadowOffsetX or 1), cy + (config.shadowOffsetY or 1))
         ImGui.TextColored(0.0, 0.0, 0.0, 1.0, msg)
 
-        -- Foreground text (explicit RGBA to avoid unpack issues)
+        -- foreground
         local c = state.centerColor
         ImGui.SetCursorPos(cx, cy)
         ImGui.TextColored(c[1], c[2], c[3], c[4], msg)
@@ -411,6 +433,8 @@ local function drawGUI()
     ImGui.Separator()
 
     local groupMembers = getGroupMemberCount()
+    local actualMembers = getActualGroupCount()
+
     if groupMembers < 2 then
         ImGui.TextColored(1, 1, 0, 1, "Not in a group or only 1 member")
     else
@@ -418,7 +442,8 @@ local function drawGUI()
         if leader and leader.Name() then
             ImGui.Text("Leader: " .. leader.Name())
         end
-        ImGui.Text("Group Members: " .. groupMembers)
+        -- FIX (v2.3.12): show actual member count (6) instead of Group.Members() (often 5)
+        ImGui.Text("Group Members: " .. actualMembers)
 
         if state.showAlert then
             ImGui.TextColored(1, 0, 0, 1, "ALERT: Members too far!")
@@ -483,7 +508,6 @@ local function drawGUI()
         end
         tooltip("Shows a temporary center-screen alert when group members exceed the distance threshold (saved)")
 
-        -- NEW: Shadow offset sliders
         local sx = ImGui.SliderInt("Overlay Shadow X", config.shadowOffsetX, 0, 3)
         if type(sx) == "number" then
             config.shadowOffsetX = sx
@@ -498,7 +522,6 @@ local function drawGUI()
         end
         tooltip("EQ-style shadow offset Y (pixels, saved)")
 
-        -- NEW: Overlay font toggle + size
         local uf = ImGui.Checkbox("Use Overlay Pixel Font (Tahoma)", config.useOverlayFont)
         if type(uf) == "boolean" then
             config.useOverlayFont = uf
@@ -544,25 +567,29 @@ local function drawGUI()
             local leaderX, leaderY, leaderZ = leader.X(), leader.Y(), leader.Z()
 
             if leaderX and leaderY and leaderZ then
-                for i = 0, groupMembers - 1 do
-                    local member = getGroupMember(i)
-                    if member and member.Name() then
-                        local memberX, memberY, memberZ = member.X(), member.Y(), member.Z()
+                -- FIX (v2.3.12): iterate members until nil so we don't miss the 6th member
+                local idx = 0
+                while true do
+                    local member = getGroupMember(idx)
+                    if not member or not member.Name() then break end
 
-                        if member.Name() == leader.Name() then
-                            ImGui.TextColored(0, 0.8, 1, 1, member.Name() .. " (Leader)")
-                        elseif memberX and memberY and memberZ then
-                            local distance = calculateDistance(leaderX, leaderY, leaderZ, memberX, memberY, memberZ)
+                    local memberX, memberY, memberZ = member.X(), member.Y(), member.Z()
 
-                            if distance > config.threshold then
-                                ImGui.TextColored(1, 0, 0, 1, string.format("%s - %.0f units", member.Name(), distance))
-                            else
-                                ImGui.TextColored(0, 1, 0, 1, string.format("%s - %.0f units", member.Name(), distance))
-                            end
+                    if member.Name() == leader.Name() then
+                        ImGui.TextColored(0, 0.8, 1, 1, member.Name() .. " (Leader)")
+                    elseif memberX and memberY and memberZ then
+                        local distance = calculateDistance(leaderX, leaderY, leaderZ, memberX, memberY, memberZ)
+
+                        if distance > config.threshold then
+                            ImGui.TextColored(1, 0, 0, 1, string.format("%s - %.0f units", member.Name(), distance))
                         else
-                            ImGui.TextColored(0.5, 0.5, 0.5, 1, member.Name() .. " (no coordinates)")
+                            ImGui.TextColored(0, 1, 0, 1, string.format("%s - %.0f units", member.Name(), distance))
                         end
+                    else
+                        ImGui.TextColored(0.5, 0.5, 0.5, 1, member.Name() .. " (no coordinates)")
                     end
+
+                    idx = idx + 1
                 end
             end
         end
