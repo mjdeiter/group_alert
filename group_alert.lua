@@ -1,10 +1,10 @@
 -- Group Alert Script for MacroQuest
 -- Monitors group member distances and alerts via HUD when members are too far from the leader
--- Version: 2.3.13
+-- Version: 2.3.14
 
 local mq = require('mq')
 local ImGui = require('ImGui')
-local SCRIPT_VERSION = "2.3.13"
+local SCRIPT_VERSION = "2.3.14"
 
 -- Configuration
 local config = {
@@ -19,7 +19,10 @@ local config = {
 
     -- Overlay-only font option (pixel-ish)
     useOverlayFont = true,
-    overlayFontSize = 28
+    overlayFontSize = 28,
+
+    -- UI options
+    hideButtons = false      -- Hide buttons to allow smaller window size
 }
 
 -- ============================
@@ -55,6 +58,8 @@ local function loadPersistentConfig()
             elseif k == "overlayFontSize" then
                 local n = tonumber(v)
                 if n and n > 0 then config.overlayFontSize = n end
+            elseif k == "hideButtons" then
+                config.hideButtons = (v == "true")
             end
         end
     end
@@ -72,6 +77,7 @@ local function savePersistentConfig()
     f:write("shadowOffsetY=" .. tostring(config.shadowOffsetY) .. "\n")
     f:write("useOverlayFont=" .. tostring(config.useOverlayFont) .. "\n")
     f:write("overlayFontSize=" .. tostring(config.overlayFontSize) .. "\n")
+    f:write("hideButtons=" .. tostring(config.hideButtons) .. "\n")
     f:close()
 end
 
@@ -157,7 +163,7 @@ local function getGroupMember(index)
     return nil
 end
 
--- NEW (v2.3.13): actual member count by iterating until nil (fixes 5 vs 6 display)
+-- NEW (v2.3.14): actual member count by iterating until nil (fixes 5 vs 6 display)
 local function getActualGroupCount()
     local n = 0
     local i = 0
@@ -278,7 +284,7 @@ local function checkGroupDistances()
 
     state.separatedMembers = {}
 
-    -- FIX (v2.3.13): iterate members until nil so we don't miss the 6th member
+    -- FIX (v2.3.14): iterate members until nil so we don't miss the 6th member
     local i = 0
     while true do
         local member = getGroupMember(i)
@@ -379,7 +385,7 @@ local function drawGUI()
         if leader and leader.Name() then
             ImGui.Text("Leader: " .. leader.Name())
         end
-        -- FIX (v2.3.13): show actual member count (6) instead of Group.Members() (often 5)
+        -- FIX (v2.3.14): show actual member count (6) instead of Group.Members() (often 5)
         ImGui.Text("Group Members: " .. actualMembers)
 
         if state.showAlert then
@@ -392,25 +398,36 @@ local function drawGUI()
 
     ImGui.Separator()
 
-    -- Settings Toggle
-    if ImGui.Button(showSettings and "Hide Settings" or "Show Settings") then
-        showSettings = not showSettings
+    -- Hide Buttons Checkbox (always visible)
+    local hb = ImGui.Checkbox("Hide Buttons", config.hideButtons)
+    if type(hb) == "boolean" then
+        config.hideButtons = hb
+        savePersistentConfig()
     end
-    tooltip("Toggle settings visibility")
+    tooltip("Hide buttons to allow smaller window size (saved)")
 
-    ImGui.SameLine()
+    -- Only show buttons if not hidden
+    if not config.hideButtons then
+        -- Settings Toggle
+        if ImGui.Button(showSettings and "Hide Settings" or "Show Settings") then
+            showSettings = not showSettings
+        end
+        tooltip("Toggle settings visibility")
 
-    if ImGui.Button("Cast Call of the Heroes") then
-        castCoTH()
+        ImGui.SameLine()
+
+        if ImGui.Button("Cast Call of the Heroes") then
+            castCoTH()
+        end
+        tooltip("Manually request Call of the Heroes from an available Mage in the group")
+
+        ImGui.SameLine()
+
+        if ImGui.Button("Exit Script") then
+            terminate = true
+        end
+        tooltip("Close window and terminate script")
     end
-    tooltip("Manually request Call of the Heroes from an available Mage in the group")
-
-    ImGui.SameLine()
-
-    if ImGui.Button("Exit Script") then
-        terminate = true
-    end
-    tooltip("Close window and terminate script")
 
     -- Settings Section
     if showSettings then
@@ -497,7 +514,7 @@ local function drawGUI()
             local leaderX, leaderY, leaderZ = leader.X(), leader.Y(), leader.Z()
 
             if leaderX and leaderY and leaderZ then
-                -- FIX (v2.3.13): iterate members until nil so we don't miss the 6th member
+                -- FIX (v2.3.14): iterate members until nil so we don't miss the 6th member
                 local idx = 0
                 while true do
                     local member = getGroupMember(idx)
