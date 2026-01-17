@@ -23,17 +23,14 @@ It continuously monitors group member distances from the group leader and provid
 ### Core Monitoring
 - Automatic distance checks (1–30 second interval)
 - Live ImGui GUI with real-time updates
-- Manual distance checks on demand
-- EMU-safe group indexing (Lazarus-correct)
 
 ### Center-Screen Alerts
-- EQ-style center-screen overlay
-- Fully transparent background (no plates or boxes)
-- Single drop shadow (~1px right/down)
+- Center-screen overlay
+- Fully transparent background 
 - Explicit RGBA text rendering
 - **Red** alert when members exceed distance threshold
 - **Green** all-clear when group returns within range
-- Fires once per state transition (no spam)
+- Fires once per state transition
 - Auto-clears when resolved
 - Testable via GUI button
 
