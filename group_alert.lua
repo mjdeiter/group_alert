@@ -1,10 +1,10 @@
 -- Group Alert Script for MacroQuest
 -- Monitors group member distances and alerts via HUD when members are too far from the leader
--- Version: 2.3.12
+-- Version: 2.3.13
 
 local mq = require('mq')
 local ImGui = require('ImGui')
-local SCRIPT_VERSION = "2.3.12"
+local SCRIPT_VERSION = "2.3.13"
 
 -- Configuration
 local config = {
@@ -157,7 +157,7 @@ local function getGroupMember(index)
     return nil
 end
 
--- NEW (v2.3.12): actual member count by iterating until nil (fixes 5 vs 6 display)
+-- NEW (v2.3.13): actual member count by iterating until nil (fixes 5 vs 6 display)
 local function getActualGroupCount()
     local n = 0
     local i = 0
@@ -278,7 +278,7 @@ local function checkGroupDistances()
 
     state.separatedMembers = {}
 
-    -- FIX (v2.3.12): iterate members until nil so we don't miss the 6th member
+    -- FIX (v2.3.13): iterate members until nil so we don't miss the 6th member
     local i = 0
     while true do
         local member = getGroupMember(i)
@@ -305,69 +305,6 @@ local function checkGroupDistances()
         print("\ag[GROUP ALERT] All clear: All members are within range.")
     end
     state.previousShowAlert = state.showAlert
-end
-
--- Manual check command - forces immediate distance check and reports results
-local function manualGroupCheck()
-    print("\ay[GROUP ALERT] Running manual group check...")
-    local groupMembers = getGroupMemberCount()
-
-    if groupMembers < 2 then
-        print("\ay[GROUP ALERT] You are not in a group or group has only 1 member.")
-        return
-    end
-
-    local leader = mq.TLO.Group.Leader
-    if not leader or not leader.Name() then
-        print("\ar[GROUP ALERT] Unable to determine group leader.")
-        return
-    end
-
-    -- Cache leader's coordinates
-    local leaderX, leaderY, leaderZ = leader.X(), leader.Y(), leader.Z()
-    if not leaderX or not leaderY or not leaderZ then
-        print("\ar[GROUP ALERT] Unable to get leader coordinates.")
-        return
-    end
-
-    local withinRange = {}
-    local tooFar = {}
-
-    -- FIX (v2.3.12): iterate members until nil so we don't miss the 6th member
-    local i = 0
-    while true do
-        local member = getGroupMember(i)
-        if not member or not member.Name() then break end
-
-        if member.Name() ~= leader.Name() then
-            local memberX, memberY, memberZ = member.X(), member.Y(), member.Z()
-            if memberX and memberY and memberZ then
-                local distance = calculateDistance(leaderX, leaderY, leaderZ, memberX, memberY, memberZ)
-                if distance > config.threshold then
-                    table.insert(tooFar, string.format("%s (%.0f units)", member.Name(), distance))
-                else
-                    table.insert(withinRange, string.format("%s (%.0f units)", member.Name(), distance))
-                end
-            else
-                table.insert(tooFar, member.Name() .. " (no coordinates)")
-            end
-        end
-
-        i = i + 1
-    end
-
-    print("\ag[GROUP ALERT] Leader: " .. leader.Name())
-    print("\ag[GROUP ALERT] Threshold: " .. config.threshold .. " units")
-
-    if #withinRange > 0 then
-        print("\ag[GROUP ALERT] Within range: " .. table.concat(withinRange, ", "))
-    end
-
-    if #tooFar > 0 then
-        print("\ar[GROUP ALERT] Too far: " .. table.concat(tooFar, ", "))
-    else
-        print("\ag[GROUP ALERT] All members are within range!")
-    end
 end
 
 -- Manual Cast: Call of the Heroes (E3 broadcast)
@@ -442,7 +379,7 @@ local function drawGUI()
         if leader and leader.Name() then
             ImGui.Text("Leader: " .. leader.Name())
         end
-        -- FIX (v2.3.12): show actual member count (6) instead of Group.Members() (often 5)
+        -- FIX (v2.3.13): show actual member count (6) instead of Group.Members() (often 5)
         ImGui.Text("Group Members: " .. actualMembers)
 
         if state.showAlert then
@@ -460,13 +397,6 @@ local function drawGUI()
         showSettings = not showSettings
     end
     tooltip("Toggle settings visibility")
-
-    ImGui.SameLine()
-
-    if ImGui.Button("Manual Check") then
-        checkGroupDistances()
-    end
-    tooltip("Force immediate distance check")
 
     ImGui.SameLine()
 
@@ -567,7 +497,7 @@ local function drawGUI()
             local leaderX, leaderY, leaderZ = leader.X(), leader.Y(), leader.Z()
 
             if leaderX and leaderY and leaderZ then
-                -- FIX (v2.3.12): iterate members until nil so we don't miss the 6th member
+                -- FIX (v2.3.13): iterate members until nil so we don't miss the 6th member
                 local idx = 0
                 while true do
                     local member = getGroupMember(idx)
@@ -630,8 +560,6 @@ local function groupAlertCommand(...)
         overlayFont = nil
         overlayFontLoadedForSize = nil
         print("\agConfiguration reloaded.")
-    elseif args[1] == "check" then
-        manualGroupCheck()
     elseif args[1] == "status" then
         print("\ag[GROUP ALERT] Current Settings:")
         print("\ag  Threshold: " .. config.threshold .. " units")
@@ -650,7 +578,6 @@ local function groupAlertCommand(...)
         print("\ay/groupalert debug - Toggle debug mode")
         print("\ay/groupalert threshold <value> - Set distance threshold (saved)")
         print("\ay/groupalert interval <seconds> - Set check interval (saved)")
-        print("\ay/groupalert check - Manually check group member distances")
         print("\ay/groupalert status - Show current settings")
         print("\ay/groupalert reload - Reload configuration")
         print("\ay/groupalert gui - Open GUI window")
