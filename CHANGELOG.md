@@ -1,10 +1,26 @@
-# Group Alert Changelog
+﻿# Group Alert Changelog
 All notable changes to this project are documented in this file.
 This project follows a pragmatic versioning scheme where:
 - Patch releases fix correctness issues
 - Minor releases add features
 - Visual-only changes are explicitly called out
 ---
+
+## [v2.3.15] - 2026-05-11
+### E3 Follow Mode Broadcast
+### Added
+- **E3 Follow row** with three radio buttons and a **Send** broadcast button:
+  - **Nav** – `/e3follow` (navigation-based, may cut corners)
+  - **Replay** – `/e3follow replay nonav` (replays exact player path)
+  - **No Nav** – `/e3follow nonav` (disables stuck-nav feature)
+- Selection broadcasts the chosen follow mode to the group via `/e3bcga`
+- Row is hidden when **Hide Buttons** compact mode is active
+### Notes
+- No changes to core distance monitoring or alert logic
+- Fully backward compatible with existing `GroupAlert.ini` settings
+- Complements the existing Cast CoTH button for full group-control from one window
+---
+
 ## [v2.3.14] – 2026-01-17
 ### Compact Mode Addition
 ### Added
@@ -114,3 +130,4 @@ leading up to the stable v2.3.10 overlay system.
 - Automatic periodic checks
 - Debug logging to file
 - CLI-only interface (pre-GUI)
+
