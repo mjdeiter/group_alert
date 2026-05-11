@@ -1,10 +1,10 @@
--- Group Alert Script for MacroQuest
+﻿-- Group Alert Script for MacroQuest
 -- Monitors group member distances and alerts via HUD when members are too far from the leader
--- Version: 2.3.14
+-- Version: 2.3.15
 
 local mq = require('mq')
 local ImGui = require('ImGui')
-local SCRIPT_VERSION = "2.3.14"
+local SCRIPT_VERSION = "2.3.15"
 
 -- Configuration
 local config = {
@@ -96,6 +96,15 @@ local state = {
 
     -- Overlay foreground color (RED/GREEN)
     centerColor = {0.2, 1.0, 0.2, 1.0}
+}
+
+-- E3 Follow radio button selection (1-based)
+-- 1 = Follow (nav), 2 = Follow (replay nonav), 3 = Follow (nonav)
+local e3FollowSelected = 1
+local e3FollowCommands = {
+    "/e3follow",
+    "/e3follow replay nonav",
+    "/e3follow nonav"
 }
 
 -- GUI state
@@ -232,11 +241,11 @@ local function handleCenterAlert()
     end
 
     if state.showAlert and not state.alertActive then
-        -- 🔴 RED when alert triggers
+        -- RED when alert triggers
         fireCenterOverlay("GROUP ALERT: " .. table.concat(state.separatedMembers, ", "), 3, {1.0, 0.0, 0.0, 1.0})
         state.alertActive = true
     elseif (not state.showAlert) and state.alertActive then
-        -- 🟢 GREEN when alert clears
+        -- GREEN when alert clears
         fireCenterOverlay("GROUP ALERT CLEARED", 2, {0.2, 1.0, 0.2, 1.0})
         state.alertActive = false
     end
@@ -408,7 +417,7 @@ local function drawGUI()
 
     -- Only show buttons if not hidden
     if not config.hideButtons then
-        -- Settings Toggle
+        -- Row 1: Settings | Cast Call of the Heroes | Exit Script
         if ImGui.Button(showSettings and "Hide Settings" or "Show Settings") then
             showSettings = not showSettings
         end
@@ -427,6 +436,33 @@ local function drawGUI()
             terminate = true
         end
         tooltip("Close window and terminate script")
+
+        -- Row 2: E3 Follow radio buttons + Send button
+        ImGui.Text("E3 Follow:")
+        ImGui.SameLine()
+
+        if ImGui.RadioButton("Nav##f1", e3FollowSelected == 1) then
+            e3FollowSelected = 1
+        end
+        tooltip("Follow you using navigation (may cut corners)")
+        ImGui.SameLine()
+
+        if ImGui.RadioButton("Replay##f2", e3FollowSelected == 2) then
+            e3FollowSelected = 2
+        end
+        tooltip("Slower follow that replays your exact movements")
+        ImGui.SameLine()
+
+        if ImGui.RadioButton("No Nav##f3", e3FollowSelected == 3) then
+            e3FollowSelected = 3
+        end
+        tooltip("Disables stuck-nav feature (Group Alert only, not ItemPass)")
+        ImGui.SameLine()
+
+        if ImGui.Button("Send##follow") then
+            mq.cmd('/e3bcga ' .. e3FollowCommands[e3FollowSelected])
+        end
+        tooltip("Broadcast the selected E3 follow mode to the group")
     end
 
     -- Settings Section
