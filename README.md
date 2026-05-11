@@ -1,4 +1,4 @@
-# Group Alert
+﻿# Group Alert
 
 **Originally created by Alektra <Lederhosen>**
 
@@ -39,6 +39,13 @@ It continuously monitors group member distances from the group leader and provid
 - Manual trigger only (no automation)
 - Uses E3 group broadcast
 - Independent of alert state
+### E3 Follow Mode Broadcast
+- **Three follow mode radio buttons** with a **Send** broadcast button:
+  - **Nav** – /e3follow (navigation-based, may cut corners)
+  - **Replay** – /e3follow replay nonav (replays exact player path)
+  - **No Nav** – /e3follow nonav (disables stuck-nav feature)
+- Broadcasts the selected mode to the group via /e3bcga
+- Hidden when **Hide Buttons** compact mode is active
 
 ### Visual Interface
 - Color-coded group member list:
