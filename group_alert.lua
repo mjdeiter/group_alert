@@ -1,4 +1,4 @@
-﻿-- Group Alert Script for MacroQuest
+-- Group Alert Script for MacroQuest
 -- Monitors group member distances and alerts via HUD when members are too far from the leader
 -- Version: 2.3.15
 
