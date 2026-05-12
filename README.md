@@ -10,7 +10,8 @@ Group Alert is a real-time group distance monitoring tool for the
 It continuously monitors group member distances from the group leader and provides
 **high-visibility, center-screen alerts** when members become separated.
 
-<img width="358" height="353" alt="image" src="https://github.com/user-attachments/assets/f13ad220-821a-4db3-9cec-fb0b73b40346" />
+<img width="351" height="396" alt="image" src="https://github.com/user-attachments/assets/a89aeb3d-92c7-4abe-87ff-c5c677c8a24c" />
+
 
 
 
