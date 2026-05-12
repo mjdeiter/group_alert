@@ -1,10 +1,10 @@
 -- Group Alert Script for MacroQuest
 -- Monitors group member distances and alerts via HUD when members are too far from the leader
--- Version: 2.3.15
+-- Version: 2.3.16
 
 local mq = require('mq')
 local ImGui = require('ImGui')
-local SCRIPT_VERSION = "2.3.15"
+local SCRIPT_VERSION = "2.3.16"
 
 -- Configuration
 local config = {
