@@ -459,10 +459,11 @@ local function drawGUI()
         tooltip("Disables stuck-nav feature (Group Alert only, not ItemPass)")
         ImGui.SameLine()
 
-        if ImGui.Button("Send##follow") then
-            mq.cmd('/e3bcga ' .. e3FollowCommands[e3FollowSelected])
+                if ImGui.Button("Send##follow") then
+            -- Execute follow command ONLY on the local controller client
+            mq.cmd(e3FollowCommands[e3FollowSelected])
         end
-        tooltip("Broadcast the selected E3 follow mode to the group")
+        tooltip("Send the selected E3 follow mode only on this controller client")
     end
 
     -- Settings Section
