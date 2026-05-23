@@ -1,10 +1,10 @@
 -- Group Alert Script for MacroQuest
 -- Monitors group member distances and alerts via HUD when members are too far from the leader
--- Version: 2.3.16
+-- Version: 2.3.17
 
 local mq = require('mq')
 local ImGui = require('ImGui')
-local SCRIPT_VERSION = "2.3.16"
+local SCRIPT_VERSION = "2.3.17"
 
 -- Configuration
 local config = {
@@ -110,6 +110,9 @@ local e3FollowCommands = {
 -- GUI state
 local showUI = true
 local terminate = false
+-- FIX (v2.3.17): deferred CoTH flag — button sets intent, main loop executes.
+-- mq.delay() is illegal inside ImGui render callbacks (non-yieldable thread).
+local pendingCoTH = false
 
 -- Log file for debugging
 local logFilePath = "group_alert_log.txt"
@@ -322,9 +325,53 @@ local function checkGroupDistances()
     state.previousShowAlert = state.showAlert
 end
 
--- Manual Cast: Call of the Heroes (E3 broadcast)
+-- Manual Cast: Call of the Heroes via Ninadinya (mage)
+-- Queues CoTH on each separated group member individually.
+-- If no members are flagged as separated, casts on all non-leader members.
+-- FIX (v2.3.17): E3Next no longer accepts inline spawn ID with /queuecast.
+-- Must set target via /mqtarget first, then queue the cast separately.
 local function castCoTH()
-    mq.cmd('/e3bcga /casting "Call of the Heroes"')
+    local targets = {}
+
+    if #state.separatedMembers > 0 then
+        -- Only CoTH the members who are actually out of range
+        for _, name in ipairs(state.separatedMembers) do
+            table.insert(targets, name)
+        end
+    else
+        -- No alert active: CoTH everyone except the leader (and Ninadinya herself)
+        local leader = mq.TLO.Group.Leader
+        local leaderName = leader and leader.Name() or ""
+        local idx = 0
+        while true do
+            local member = getGroupMember(idx)
+            if not member or not member.Name() then break end
+            local name = member.Name()
+            if name ~= leaderName and name ~= "Ninadinya" then
+                table.insert(targets, name)
+            end
+            idx = idx + 1
+        end
+    end
+
+    if #targets == 0 then
+        print("\ay[GROUP ALERT] CoTH: No targets to summon.")
+        return
+    end
+
+    for _, name in ipairs(targets) do
+        local spawnID = mq.TLO.Spawn("pc " .. name).ID()
+        if spawnID and spawnID > 0 then
+            -- FIX (v2.3.17): E3Next /queuecast requires character name as first arg.
+            -- Correct syntax: /queuecast <char|me> "spell name" spawnID
+            -- mq.delay() is safe here because castCoTH() runs from the main loop (yieldable).
+            mq.cmdf('/e3bct Ninadinya /queuecast me "Call of the Heroes" %d', spawnID)
+            logMessage("CoTH queued on " .. name .. " (ID: " .. tostring(spawnID) .. ")")
+        else
+            print("\ar[GROUP ALERT] CoTH: Could not find spawn ID for " .. name)
+            logMessage("CoTH failed: no spawn ID for " .. name)
+        end
+    end
 end
 
 local function drawGUI()
@@ -426,7 +473,7 @@ local function drawGUI()
         ImGui.SameLine()
 
         if ImGui.Button("Cast Call of the Heroes") then
-            castCoTH()
+            pendingCoTH = true  -- deferred: executed in main loop, not here
         end
         tooltip("Manually request Call of the Heroes from an available Mage in the group")
 
@@ -459,7 +506,7 @@ local function drawGUI()
         tooltip("Disables stuck-nav feature (Group Alert only, not ItemPass)")
         ImGui.SameLine()
 
-                if ImGui.Button("Send##follow") then
+        if ImGui.Button("Send##follow") then
             -- Execute follow command ONLY on the local controller client
             mq.cmd(e3FollowCommands[e3FollowSelected])
         end
@@ -654,6 +701,11 @@ logMessage("Script started")
 -- Main loop
 while not terminate and mq.TLO.MacroQuest.GameState() == "INGAME" do
     mq.doevents()
+    -- Deferred CoTH: safe to call mq.delay() here (yieldable context)
+    if pendingCoTH then
+        pendingCoTH = false
+        castCoTH()
+    end
     if os.time() - state.lastCheckTime >= config.checkInterval then
         state.lastCheckTime = os.time()
         checkGroupDistances()
