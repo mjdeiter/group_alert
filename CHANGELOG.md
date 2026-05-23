@@ -1,9 +1,24 @@
-﻿# Group Alert Changelog
+# Group Alert Changelog
 All notable changes to this project are documented in this file.
 This project follows a pragmatic versioning scheme where:
 - Patch releases fix correctness issues
 - Minor releases add features
 - Visual-only changes are explicitly called out
+---
+
+## [v2.3.17] - 2026-05-23
+### E3Next /queuecast Syntax Fix
+### Fixed
+- **Cast Call of the Heroes** button now works correctly after E3Next update
+- E3Next changed `/queuecast` to require a character name as the first argument
+- Previous syntax: `/queuecast "spell name" spawnID`
+- Corrected syntax: `/queuecast me "spell name" spawnID`
+- Also fixed: `mq.delay()` crash caused by calling `castCoTH()` directly inside the ImGui render callback (non-yieldable thread)
+- Implemented deferred execution via `pendingCoTH` flag — button sets intent, main loop executes
+### Notes
+- No UI changes
+- No configuration changes
+- Fully backward compatible with existing `GroupAlert.ini` settings
 ---
 
 ## [v2.3.15] - 2026-05-11
@@ -130,4 +145,3 @@ leading up to the stable v2.3.10 overlay system.
 - Automatic periodic checks
 - Debug logging to file
 - CLI-only interface (pre-GUI)
-
