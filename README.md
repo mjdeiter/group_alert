@@ -1,4 +1,4 @@
-﻿# Group Alert
+# Group Alert
 
 **Originally created by Alektra <Lederhosen>**
 
@@ -11,12 +11,6 @@ It continuously monitors group member distances from the group leader and provid
 **high-visibility, center-screen alerts** when members become separated.
 
 <img width="346" height="393" alt="image" src="https://github.com/user-attachments/assets/887d5402-eff9-4bf0-a20d-b924597911d1" />
-
-
-
-
-
-
 
 ---
 
@@ -37,10 +31,12 @@ It continuously monitors group member distances from the group leader and provid
 - Testable via GUI button
 
 ### Manual CoTH Control
-- **Always-visible “Cast Call of the Heroes” button**
+- **Always-visible "Cast Call of the Heroes" button**
 - Manual trigger only (no automation)
-- Uses E3 group broadcast
+- Uses E3 `/queuecast me "Call of the Heroes" spawnID` (compatible with E3Next v1.48+)
+- Deferred execution — button sets intent, main loop fires cast (ImGui-safe)
 - Independent of alert state
+
 ### E3 Follow Mode Broadcast
 - **Three follow mode radio buttons** with a **Send** broadcast button:
   - **Nav** – /e3follow (navigation-based, may cut corners)
@@ -73,6 +69,7 @@ Saved automatically to `GroupAlert.ini`:
 
 - Project Lazarus EverQuest EMU
 - MacroQuest **MQNext (MQ2Mono)**
+- **E3Next v1.48+** (required for `/queuecast me` syntax used by CoTH button)
 - ImGui support
 
 > **Note:** MQ2HUD and MQ2Alert are **not required** and are not used.
@@ -83,3 +80,30 @@ Saved automatically to `GroupAlert.ini`:
 
 1. Copy `group_alert.lua` into your MacroQuest `lua` directory
 2. In game, run:
+
+```
+/lua run group_alert
+```
+
+---
+
+## Commands
+
+| Command | Description |
+|---|---|
+| `/groupalert` | Show help |
+| `/groupalert gui` | Open GUI window |
+| `/groupalert threshold <value>` | Set distance threshold (saved) |
+| `/groupalert interval <seconds>` | Set check interval (saved) |
+| `/groupalert status` | Show current settings |
+| `/groupalert reload` | Reload configuration from INI |
+| `/groupalert debug` | Toggle debug mode (saved) |
+| `/groupalert exit` | Exit script |
+
+---
+
+## Version History
+
+See [CHANGELOG.md](CHANGELOG.md) for full history.
+
+**Current version: v2.3.17** — E3Next `/queuecast` syntax fix for Cast CoTH button
